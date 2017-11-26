@@ -351,7 +351,7 @@ loadName (tr_variant * dict, tr_torrent * tor)
     {
       ret = TR_FR_NAME;
 
-      if (tr_strcmp0 (tr_torrentName(tor), name) != 0)
+      if (tr_strcmp0 (tr_torrentName(tor), name))
         {
           tr_free (tor->info.name);
           tor->info.name = tr_strdup (name);
@@ -614,16 +614,16 @@ loadProgress (tr_variant * dict, tr_torrent * tor)
 
           if (!tr_variantGetRaw (b, &buf, &buflen))
             err = "Invalid value for \"blocks\"";
-          else if (buflen == 3 && memcmp (buf, "all", 3) == 0)
+          else if ((buflen == 3) && !memcmp (buf, "all", 3))
             tr_bitfieldSetHasAll (&blocks);
-          else if (buflen == 4 && memcmp (buf, "none", 4) == 0)
+          else if ((buflen == 4) && !memcmp (buf, "none", 4))
             tr_bitfieldSetHasNone (&blocks);
           else
             tr_bitfieldSetRaw (&blocks, buf, buflen, true);
         }
       else if (tr_variantDictFindStr (prog, TR_KEY_have, &str, NULL))
         {
-          if (strcmp (str, "all") == 0)
+          if (!strcmp (str, "all"))
             tr_bitfieldSetHasAll (&blocks);
           else
             err = "Invalid value for HAVE";
@@ -675,6 +675,7 @@ tr_torrentSaveResume (tr_torrent * tor)
   tr_variantDictAddInt (&top, TR_KEY_max_peers, tor->maxConnectedPeers);
   tr_variantDictAddInt (&top, TR_KEY_bandwidth_priority, tr_torrentGetPriority (tor));
   tr_variantDictAddBool (&top, TR_KEY_paused, !tor->isRunning && !tor->isQueued);
+  tr_variantDictAddBool (&top, TR_KEY_sequentialDownload, tor->sequentialDownload);
   savePeers (&top, tor);
   if (tr_torrentHasMetadata (tor))
     {
@@ -825,6 +826,13 @@ loadFromFile (tr_torrent * tor, uint64_t fieldsToLoad)
       tr_torrentSetPriority (tor, i);
       fieldsLoaded |= TR_FR_BANDWIDTH_PRIORITY;
     }
+
+    if ((fieldsToLoad & TR_FR_SEQUENTIAL)
+        && tr_variantDictFindBool (&top, TR_KEY_sequentialDownload, &boolVal))
+    {
+        tor->sequentialDownload = boolVal;
+        fieldsLoaded |= TR_FR_SEQUENTIAL;
+        }
 
   if (fieldsToLoad & TR_FR_PEERS)
     fieldsLoaded |= loadPeers (&top, tor);

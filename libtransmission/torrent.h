@@ -11,7 +11,8 @@
  #error only libtransmission should #include this header.
 #endif
 
-#pragma once
+#ifndef TR_TORRENT_H
+#define TR_TORRENT_H 1
 
 #include "bandwidth.h" /* tr_bandwidth */
 #include "completion.h" /* tr_completion */
@@ -271,6 +272,7 @@ struct tr_torrent
     uint16_t                   idleLimitMinutes;
     tr_idlelimit               idleLimitMode;
     bool                       finishedSeedingByIdle;
+    bool                       sequentialDownload; 
 };
 
 static inline tr_torrent*
@@ -510,3 +512,4 @@ tr_torrentGetQueueDirection (const tr_torrent * tor)
   return tr_torrentIsSeed (tor) ? TR_UP : TR_DOWN;
 }
 
+#endif

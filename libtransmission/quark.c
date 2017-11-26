@@ -315,6 +315,7 @@ static const struct tr_key_struct my_static[] =
   { "seedRatioMode", 13 },
   { "seederCount", 11 },
   { "seeding-time-seconds", 20 },
+  { "sequential", 10  },
   { "session-count", 13 },
   { "sessionCount", 12 },
   { "show-backup-trackers", 20 },
@@ -411,7 +412,7 @@ compareKeys (const void * va, const void * vb)
 
   ret = memcmp (a->str, b->str, MIN (a->len, b->len));
 
-  if (ret == 0 && a->len != b->len)
+  if (!ret && (a->len != b->len))
     ret = a->len < b->len ? -1 : 1;
 
   return ret;

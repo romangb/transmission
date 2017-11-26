@@ -7,7 +7,8 @@
  * $Id$
  */
 
-#pragma once
+#ifndef TR_QUARK_H
+#define TR_QUARK_H 1
 
 #ifdef __cplusplus
 extern "C" {
@@ -316,6 +317,7 @@ enum
   TR_KEY_seedRatioMode,
   TR_KEY_seederCount,
   TR_KEY_seeding_time_seconds,
+  TR_KEY_sequentialDownload,
   TR_KEY_session_count,
   TR_KEY_sessionCount,
   TR_KEY_show_backup_trackers,
@@ -431,3 +433,4 @@ tr_quark tr_quark_new (const void * str, size_t len);
 }
 #endif
 
+#endif

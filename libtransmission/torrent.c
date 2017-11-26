@@ -112,7 +112,7 @@ tr_torrentFindFromHash (tr_session * session, const uint8_t * torrentHash)
 
   while ((tor = tr_torrentNext (session, tor)))
     if (*tor->info.hash == *torrentHash)
-      if (memcmp (tor->info.hash, torrentHash, SHA_DIGEST_LENGTH) == 0)
+      if (!memcmp (tor->info.hash, torrentHash, SHA_DIGEST_LENGTH))
         return tor;
 
   return NULL;
@@ -140,7 +140,7 @@ tr_torrentFindFromObfuscatedHash (tr_session * session,
   tr_torrent * tor = NULL;
 
   while ((tor = tr_torrentNext (session, tor)))
-    if (memcmp (tor->obfuscatedHash, obfuscatedTorrentHash, SHA_DIGEST_LENGTH) == 0)
+    if (!memcmp (tor->obfuscatedHash, obfuscatedTorrentHash, SHA_DIGEST_LENGTH))
       return tor;
 
   return NULL;
@@ -888,6 +888,8 @@ torrentInit (tr_torrent * tor, const tr_ctor * ctor)
 
   tor->finishedSeedingByIdle = false;
 
+  tor->sequentialDownload = false;
+
   tr_peerMgrAddTorrent (session->peerMgr, tor);
 
   assert (!tor->downloadedCur);
@@ -1080,7 +1082,7 @@ tr_torrentSetDownloadDir (tr_torrent * tor, const char * path)
 {
   assert (tr_isTorrent (tor));
 
-  if (path == NULL || tor->downloadDir == NULL || strcmp (path, tor->downloadDir) != 0)
+  if (!path || !tor->downloadDir || strcmp (path, tor->downloadDir))
     {
       tr_free (tor->downloadDir);
       tor->downloadDir = tr_strdup (path);
@@ -2463,6 +2465,24 @@ tr_torrentSetPriority (tr_torrent * tor, tr_priority_t priority)
     }
 }
 
+bool
+tr_torrentGetSequentialDownload (const tr_torrent * tor)
+{
+    assert (tr_isTorrent (tor));
+    return tor->sequentialDownload;
+}
+
+void
+tr_torrentSetSequentialDownload (tr_torrent * tor, bool sequential)
+{
+    assert (tr_isTorrent (tor));
+    if (tor->sequentialDownload != sequential)
+    {
+        tor->sequentialDownload = sequential;
+        tr_torrentSetDirty (tor);
+    }
+}
+
 /***
 ****
 ***/
@@ -2785,7 +2805,7 @@ tr_torrentSetAnnounceList (tr_torrent             * tor,
           bool clear = true;
 
           for (i=0; clear && i<trackerCount; ++i)
-            if (strcmp (trackers[i].announce, tor->errorTracker) == 0)
+            if (!strcmp (trackers[i].announce, tor->errorTracker))
               clear = false;
 
           if (clear)
@@ -2882,12 +2902,12 @@ isJunkFile (const char * base)
   static const int file_count = sizeof (files) / sizeof (files[0]);
 
   for (i=0; i<file_count; ++i)
-    if (strcmp (base, files[i]) == 0)
+    if (!strcmp (base, files[i]))
       return true;
 
 #ifdef __APPLE__
   /* check for resource forks. <http://support.apple.com/kb/TA20578> */
-  if (memcmp (base, "._", 2) == 0)
+  if (!memcmp (base, "._", 2))
     return true;
 #endif
 
@@ -3047,9 +3067,6 @@ deleteLocalData (tr_torrent * tor, tr_fileFunc func)
       filename = tr_buildPath (top, tor->info.files[f].name, NULL);
       dir = tr_sys_path_dirname (filename, NULL);
       tr_free (filename);
-
-      if (dir == NULL)
-        continue;
 
       /* walk up the directory tree until we reach 'top' */
       if (!tr_sys_path_is_same (top, dir, NULL) && strcmp (top, dir) != 0)
@@ -3262,7 +3279,7 @@ tr_torrentFileCompleted (tr_torrent * tor, tr_file_index_t fileIndex)
    * it until now -- then rename it to match the one in the metadata */
   if (tr_torrentFindFile2 (tor, fileIndex, &base, &sub, NULL))
     {
-      if (strcmp (sub, f->name) != 0)
+      if (strcmp (sub, f->name))
         {
           char * oldpath = tr_buildPath (base, sub, NULL);
           char * newpath = tr_buildPath (base, f->name, NULL);
@@ -3648,8 +3665,8 @@ renameArgsAreValid (const char * oldpath, const char * newname)
 {
   return (oldpath && *oldpath)
       && (newname && *newname)
-      && (strcmp (newname, ".") != 0)
-      && (strcmp (newname, "..") != 0)
+      && (strcmp (newname, "."))
+      && (strcmp (newname, ".."))
       && (strchr (newname, TR_PATH_DELIMITER) == NULL);
 }
 
@@ -3668,7 +3685,7 @@ renameFindAffectedFiles (tr_torrent * tor, const char * oldpath, size_t * setme_
       const char * name = tor->info.files[i].name;
       const size_t len = strlen (name);
       if ((len == oldpath_len || (len > oldpath_len && name[oldpath_len] == '/')) &&
-          memcmp (oldpath, name, oldpath_len) == 0)
+          !memcmp (oldpath, name, oldpath_len))
         indices[n++] = i;
     }
 
@@ -3757,9 +3774,6 @@ renameTorrentFileString (tr_torrent       * tor,
     {
       char * tmp = tr_sys_path_dirname (oldpath, NULL);
 
-      if (tmp == NULL)
-        return;
-
       if (oldpath_len >= strlen(file->name))
         name = tr_buildPath (tmp, newname, NULL);
       else
@@ -3768,7 +3782,7 @@ renameTorrentFileString (tr_torrent       * tor,
       tr_free (tmp);
     }
 
-  if (strcmp (file->name, name) == 0)
+  if (!strcmp (file->name, name))
     {
       tr_free (name);
     }

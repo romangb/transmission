@@ -305,6 +305,8 @@ static tr_option opts[] =
     { 'y', "lpd",                    "Enable local peer discovery (LPD)", "y",  0, NULL },
     { 'Y', "no-lpd",                 "Disable local peer discovery (LPD)", "Y",  0, NULL },
     { 941, "peer-info",              "List the current torrent(s)' peers", "pi",  0, NULL },
+    { 500, "sequential-download",    "Download pieces sequentialy", "seq",  0, NULL    },
+    { 501, "random-download",        "Download pieces randomly (default)", "rnd",  0, NULL    },
     {   0, NULL,                     NULL, NULL, 0, NULL }
 };
 
@@ -409,7 +411,9 @@ getOptMode (int val)
       case 952: /* no-seedratio */
       case 984: /* honor-session */
       case 985: /* no-honor-session */
-        return MODE_TORRENT_SET;
+      case 500: /* sequential-download */
+      case 501: /* random-download */
+      return MODE_TORRENT_SET;
 
       case 920: /* session-info */
         return MODE_SESSION_GET;
@@ -519,11 +523,11 @@ addIdArg (tr_variant * args, const char * id, const char * fallback)
         }
     }
 
-  if (tr_strcmp0 (id, "active") == 0)
+  if (!tr_strcmp0 (id, "active"))
     {
       tr_variantDictAddStr (args, TR_KEY_ids, "recently-active");
     }
-  else if (strcmp (id, "all") != 0)
+  else if (strcmp (id, "all"))
     {
       const char * pch;
       bool isList = strchr (id,',') || strchr (id,'-');
@@ -611,7 +615,7 @@ addFiles (tr_variant      * args,
       arg = "-1"; /* no file will have this index, so should be a no-op */
     }
 
-  if (strcmp (arg, "all") != 0)
+  if (strcmp (arg, "all"))
     {
       int i;
       int valueCount;
@@ -673,6 +677,7 @@ static const tr_quark details_keys[] = {
     TR_KEY_secondsSeeding,
     TR_KEY_seedRatioMode,
     TR_KEY_seedRatioLimit,
+    TR_KEY_sequentialDownload,
     TR_KEY_sizeWhenDone,
     TR_KEY_startDate,
     TR_KEY_status,
@@ -718,7 +723,7 @@ parseResponseHeader (void *ptr, size_t size, size_t nmemb, void * stream UNUSED)
     const char * key = TR_RPC_SESSION_ID_HEADER ": ";
     const size_t key_len = strlen (key);
 
-    if (line_len >= key_len && memcmp (line, key, key_len) == 0)
+    if ((line_len >= key_len) && !memcmp (line, key, key_len))
     {
         const char * begin = line + key_len;
         const char * end = begin;
@@ -857,6 +862,9 @@ printDetails (tr_variant * top)
                 strlpercent (buf, 100.0 * (i - j) / i, sizeof (buf));
                 printf ("  Percent Done: %s%%\n", buf);
             }
+            
+            if (tr_variantDictFindBool (t, TR_KEY_sequentialDownload, &boolVal))
+                printf ("  Sequential download: %s\n", (boolVal ? "Yes" : "No"));
 
             if (tr_variantDictFindInt (t, TR_KEY_eta, &i))
                 printf ("  ETA: %s\n", tr_strltime (buf, i, sizeof (buf)));
@@ -1641,7 +1649,7 @@ processResponse (const char * rpcurl, const void * response, size_t len)
 
         if (tr_variantDictFindStr (&top, TR_KEY_result, &str, NULL))
         {
-            if (strcmp (str, "success") != 0)
+            if (strcmp (str, "success"))
             {
                 printf ("Error: %s\n", str);
                 status |= EXIT_FAILURE;
@@ -1693,7 +1701,7 @@ processResponse (const char * rpcurl, const void * response, size_t len)
                     status |= EXIT_FAILURE;
                 else {
                     printf ("%s responded: \"%s\"\n", rpcurl, str);
-                    if (strcmp (str, "success") != 0)
+                    if (strcmp (str, "success"))
                         status |= EXIT_FAILURE;
                 }
         }
@@ -2119,6 +2127,10 @@ processArgs (const char * rpcurl, int argc, const char * const * argv)
                           break;
                 case 985: tr_variantDictAddBool (args, TR_KEY_honorsSessionLimits, false);
                           break;
+                case 500: tr_variantDictAddBool (args, TR_KEY_sequentialDownload, true);
+                          break;
+                case 501: tr_variantDictAddBool (args, TR_KEY_sequentialDownload, false);
+                          break;
                 default:  assert ("unhandled value" && 0);
                           break;
             }
@@ -2327,11 +2339,11 @@ getHostAndPortAndRpcUrl (int * argc, char ** argv,
         int          i;
         const char * s = argv[1];
         const char * delim = strchr (s, ':');
-        if (strncmp (s, "http://", 7) == 0)   /* user passed in http rpc url */
+        if (!strncmp (s, "http://", 7))   /* user passed in http rpc url */
         {
             *rpcurl = tr_strdup_printf ("%s/rpc/", s + 7);
         }
-        else if (strncmp (s, "https://", 8) == 0) /* user passed in https rpc url */
+        else if (!strncmp (s, "https://", 8)) /* user passed in https rpc url */
         {
             UseSSL = true;
             *rpcurl = tr_strdup_printf ("%s/rpc/", s + 8);
